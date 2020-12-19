@@ -1,0 +1,4 @@
+geckodriver.log
+*.log
+conf/*json
+data/*json
