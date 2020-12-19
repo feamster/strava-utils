@@ -47,7 +47,7 @@ def get_tokens(path='conf'):
         newtokens = res.json()
 
         #update token file
-        with open('conf/strava_tokens.json', 'w') as newStravaTokens:
+        with open(tf, 'w') as newStravaTokens:
             json.dump(newtokens, newStravaTokens)
             strava_tokens = newtokens
 
