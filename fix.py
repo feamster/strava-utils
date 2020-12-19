@@ -10,30 +10,17 @@ from datetime import datetime
 from geopy.geocoders import Nominatim
 import requests
 
+from stravaauth import get_tokens, get_account, site_login
+
 
 #from selenium.webdriver.firefox.options import Options as FirefoxOptions
 #options = FirefoxOptions()
 #options.add_argument("--headless")
 
-def get_tokens(tf):
-    with open(tf) as tokenFile:
-        strava_tokens = json.load(tokenFile)
-    return strava_tokens
-
-def get_activities(af):
+def get_activities_from_file(af):
     with open(af) as tokenFile:
         activities = json.load(tokenFile)
     return activities
-
-def site_login(driver):
-    with open('conf/account.json') as accountFile:
-        account = json.load(accountFile)
-
-
-    driver.get("https://strava.com/login")
-    driver.find_element_by_id('email').send_keys(account['username'])
-    driver.find_element_by_id('password').send_keys(account['password'])
-    driver.find_element_by_id('login-button').click()
 
 def correct_elevation(driver,act_id):
     activity_url = 'https://www.strava.com/activities/{}'.format(act_id)
@@ -42,22 +29,27 @@ def correct_elevation(driver,act_id):
     driver.find_element_by_xpath('/html/body/div[6]/div[1]/a').click()
     time.sleep(4)
 
-def elevation_check(activity,thresh):
+def elevation_check(activity,thresh=0.01):
     elevation = activity['total_elevation_gain']
     distance = activity['distance']
     if distance == 0:
         return -1
     ratio = float(elevation) / float(distance) 
     if ratio > thresh:
-        print(activity['id'], activity['date'], elevation, distance, ratio)
+        print(activity['id'], activity['name'], elevation, distance, ratio)
         return activity['id']
     else:
         return -1
 
 def elevation_fix(driver,activities,thresh=0.01):
+    site_login(driver)
+
     for activity in activities:
         try:
-            if elevation_check(activity,thresh) > 0 and activity['workout_type'] == 0:
+            atype = activity['workout_type']
+            result = elevation_check(activity,thresh) 
+
+            if result > 0 and (atype is None or atype == 0):
                 correct_elevation(driver,activity['id'])
                 continue
         except:
@@ -72,12 +64,13 @@ def name_fix(activities,tokens):
         # convert distance from meters to miles
         distance = activity['distance']/1609.344
 
-        if re.match(r'.*?(Morning|Afternoon|Evening) Run.*', name):  #name == 'Morning Run':
+        if re.match(r'.*?(Morning|Lunch|Evening|Night) Run.*', name):  #name == 'Morning Run':
 
             if activity['start_latlng'] is None:
                 continue
 
             dt = datetime.strptime(activity['start_date'], '%Y-%m-%dT%H:%M:%SZ')
+
             print(name, dt)
 
             (lat, lon) = activity['start_latlng']
@@ -112,17 +105,23 @@ def name_fix(activities,tokens):
 
 if __name__ == '__main__':
 
-    ##############
+    ###############################
+    # Get Auth Tokens from File
+    # Refresh if needed
+
+    tokens = get_tokens()
+
+    ###############################
+    # Get Activities from JSON file
+    activities = get_activities_from_file('data/activities0.json')
+
+    ###############################
     # Activity Name Fix
 
-    tokens = get_tokens('conf/strava_tokens.json')
-    activities = get_activities('data/activities0.json')
-    #activities = get_activities('data/activities-all-20201218.json')
     name_fix(activities,tokens)
 
-    ##############
+    ###############################
     # Fix the Elevations - Chicago is Flat, so we look for a pretty low threshold
 
     driver = webdriver.Firefox()
-    site_login(driver)
-    elevation_fix(driver,activities,0.01)
+    elevation_fix(driver,activities)
