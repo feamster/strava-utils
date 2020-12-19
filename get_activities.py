@@ -38,33 +38,35 @@ def get_activities(start=1, end=2):
 
 ###########################
 
-#Makes request for latest activity data with new token if expired
-#load token files
-with open('conf/strava_tokens.json') as tokenFile:
-    strava_tokens = json.load(tokenFile)
-with open('conf/account.json') as myInfo:
-    myInfo = json.load(myInfo)
+if __name__ == '__main__':
+
+    #Makes request for latest activity data with new token if expired
+    #load token files
+    with open('conf/strava_tokens.json') as tokenFile:
+        strava_tokens = json.load(tokenFile)
+    with open('conf/account.json') as myInfo:
+        myInfo = json.load(myInfo)
 
 
-#If current token has expired make post request for new one
-if strava_tokens['expires_at'] < time.time():
-    res = requests.post(
-        url = 'https://www.strava.com/oauth/token',
-        data = {
-            'client_id': myInfo['client_id'],
-            'client_secret': myInfo['client_secret'],
-            'grant_type': 'refresh_token',
-            'refresh_token': strava_tokens['refresh_token'],
-            'access_token': strava_tokens['access_token']
-            }
-    )
+    #If current token has expired make post request for new one
+    if strava_tokens['expires_at'] < time.time():
+        res = requests.post(
+            url = 'https://www.strava.com/oauth/token',
+            data = {
+                'client_id': myInfo['client_id'],
+                'client_secret': myInfo['client_secret'],
+                'grant_type': 'refresh_token',
+                'refresh_token': strava_tokens['refresh_token'],
+                'access_token': strava_tokens['access_token']
+                }
+        )
 
-    newtokens = res.json()
+        newtokens = res.json()
 
-    #update token file
-    with open('conf/strava_tokens.json', 'w') as newStravaTokens:
-        json.dump(newtokens, newStravaTokens)
-        strava_tokens = newtokens
+        #update token file
+        with open('conf/strava_tokens.json', 'w') as newStravaTokens:
+            json.dump(newtokens, newStravaTokens)
+            strava_tokens = newtokens
 
 
-get_activities()
+    get_activities()

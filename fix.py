@@ -110,17 +110,19 @@ def name_fix(activities,tokens):
             time.sleep(1)
 
 
-##############
-# Activity Name Fix
+if __name__ == '__main__':
 
-tokens = get_tokens('conf/strava_tokens.json')
-activities = get_activities('data/activities0.json')
-#activities = get_activities('data/activities-all-20201218.json')
-name_fix(activities,tokens)
+    ##############
+    # Activity Name Fix
 
-##############
-# Fix the Elevations - Chicago is Flat, so we look for a pretty low threshold
+    tokens = get_tokens('conf/strava_tokens.json')
+    activities = get_activities('data/activities0.json')
+    #activities = get_activities('data/activities-all-20201218.json')
+    name_fix(activities,tokens)
 
-driver = webdriver.Firefox()
-site_login(driver)
-elevation_fix(driver,activities,0.01)
+    ##############
+    # Fix the Elevations - Chicago is Flat, so we look for a pretty low threshold
+
+    driver = webdriver.Firefox()
+    site_login(driver)
+    elevation_fix(driver,activities,0.01)
