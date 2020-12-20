@@ -4,6 +4,7 @@
 # stravaauth.py
 
 
+import os
 import time
 import json
 import requests
@@ -12,15 +13,16 @@ from selenium import webdriver
 
 account_file = 'account.json'
 token_file = 'strava_tokens.json'
+base_path = os.path.dirname(os.path.realpath(__file__))
 
-def get_account(path='conf'):
+def get_account(path='{}/conf'.format(base_path)):
     af = path + '/' + account_file
     with open(af) as account:
         account = json.load(account)
     return account 
 
 
-def get_tokens(path='conf'):
+def get_tokens(path='{}/conf'.format(base_path)):
 
     tf = path + '/' + token_file
 
