@@ -33,3 +33,4 @@ if __name__ == '__main__':
 
     driver = webdriver.Firefox()
     elevation_fix(driver,activities)
+    driver.quit()
