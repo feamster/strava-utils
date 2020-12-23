@@ -64,7 +64,7 @@ def name_fix(activities,tokens):
         # convert distance from meters to miles
         distance = activity['distance']/1609.344
 
-        if re.match(r'.*?(Morning|Lunch|Evening|Night) Run.*', name):  #name == 'Morning Run':
+        if re.match(r'.*?(Morning|Lunch|Afternoon|Evening|Night) Run.*', name):  #name == 'Morning Run':
 
             if activity['start_latlng'] is None:
                 continue
