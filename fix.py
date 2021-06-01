@@ -73,10 +73,18 @@ def name_fix(activities,tokens):
 
             print(name, dt)
 
+            ##################
+            # Reverse Geocode (TODO: Update this library.)
             (lat, lon) = activity['start_latlng']
             coordinates = f"{lat}, {lon}"
+
             location = app.reverse(coordinates, language='en').raw
-            #print(location)
+
+            if location['address']['postcode'] == '60637':
+                location['address']['city'] = 'Chicago'
+            else:
+                location['address']['city'] = location['address']['suburb']
+
 
             try: 
                 aname = '{}/{}/{} {}, {} ({}) - {:4.2f} miles'.format( dt.month, dt.day, dt.year, 
@@ -89,6 +97,7 @@ def name_fix(activities,tokens):
                 except KeyError as e:
                     aname = '{}/{}/{} Unknown - {:4.2f} miles'.format( dt.month, dt.day, dt.year, distance)
 
+            #################
             print(aname)
             activity['name'] = aname
 
