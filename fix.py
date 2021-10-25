@@ -73,21 +73,31 @@ def name_fix(activities,tokens):
 
             print(name, dt)
 
-            (lat, lon) = activity['start_latlng']
+            try:
+                (lat, lon) = activity['start_latlng']
+            except ValueError as e:
+                (lat, lon) = (0,0)
+
             coordinates = f"{lat}, {lon}"
             location = app.reverse(coordinates, language='en').raw
-            #print(location)
+            try:
+                location = app.reverse(coordinates, language='en').raw
+                #print(location)
 
-            try: 
-                aname = '{}/{}/{} {}, {} ({}) - {:4.2f} miles'.format( dt.month, dt.day, dt.year, 
-                        location['address']['city'], location['address']['state'], 
-                        location['address']['municipality'], distance)
-            except KeyError as e:
-                try:
-                    aname = '{}/{}/{} {}, {} - {:4.2f} miles'.format( dt.month, dt.day, dt.year, 
-                            location['address']['city'], location['address']['state'], distance)
+                try: 
+                    aname = '{}/{}/{} {}, {} ({}) - {:4.2f} miles'.format( dt.month, dt.day, dt.year, 
+                            location['address']['city'], location['address']['state'], 
+                            location['address']['municipality'], distance)
                 except KeyError as e:
-                    aname = '{}/{}/{} Unknown - {:4.2f} miles'.format( dt.month, dt.day, dt.year, distance)
+                    try:
+                        aname = '{}/{}/{} {}, {} - {:4.2f} miles'.format( dt.month, dt.day, dt.year, 
+                                location['address']['city'], location['address']['state'], distance)
+                    except KeyError as e:
+                        aname = '{}/{}/{} Unknown - {:4.2f} miles'.format( dt.month, dt.day, dt.year, distance)
+
+            except:
+                aname = '{}/{}/{} {}, {} - {:4.2f} miles'.format( dt.month, dt.day, dt.year, 
+                        'Chicago', 'Illinois', distance)
 
             print(aname)
             activity['name'] = aname
