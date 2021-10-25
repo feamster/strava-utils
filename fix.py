@@ -78,8 +78,10 @@ def name_fix(activities,tokens):
             except ValueError as e:
                 (lat, lon) = (0,0)
 
+            ##################
+            # Reverse Geocode (TODO: Update this library.)
             coordinates = f"{lat}, {lon}"
-            location = app.reverse(coordinates, language='en').raw
+
             try:
                 location = app.reverse(coordinates, language='en').raw
                 #print(location)
@@ -99,6 +101,7 @@ def name_fix(activities,tokens):
                 aname = '{}/{}/{} {}, {} - {:4.2f} miles'.format( dt.month, dt.day, dt.year, 
                         'Chicago', 'Illinois', distance)
 
+            #################
             print(aname)
             activity['name'] = aname
 
