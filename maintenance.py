@@ -9,6 +9,8 @@ from stravaauth import get_tokens, get_account, site_login
 from get_activities import get_activities
 from fix import name_fix, elevation_fix
 
+from give_kudos import KudosGiver
+
 from selenium import webdriver
 
 if __name__ == '__main__':
@@ -27,6 +29,13 @@ if __name__ == '__main__':
     # Activity Name Fix
 
     name_fix(activities,tokens)
+
+
+    ###############################
+    # Give Kudos
+
+    kg = KudosGiver()
+    kg.login_and_kudos()
 
     ###############################
     # Fix the Elevations - Chicago is Flat, so we look for a pretty low threshold

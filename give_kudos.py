@@ -89,6 +89,11 @@ class KudosGiver:
         self.browser.close()
         
 
+    def login_and_kudos(self):
+        self.email_login()
+        self.give_kudos()
+
+
 def main():
     kg = KudosGiver()
     kg.email_login()
