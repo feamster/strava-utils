@@ -31,6 +31,6 @@ if __name__ == '__main__':
     ###############################
     # Fix the Elevations - Chicago is Flat, so we look for a pretty low threshold
 
-    driver = webdriver.Firefox()
-    elevation_fix(driver,activities)
-    driver.quit()
+    #driver = webdriver.Firefox()
+    #elevation_fix(driver,activities)
+    #driver.quit()
