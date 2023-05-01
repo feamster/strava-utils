@@ -3,19 +3,18 @@
 import os
 import time
 
-from playwright.sync_api import sync_playwright, TimeoutError
 from stravaauth import get_account
-
+from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://www.strava.com/"
+
 
 class KudosGiver:
     """
     Logins into Strava and gives kudos to all activities under
-    Following. Additionally, scrolls down to check for more activities
-    until no more kudos can be given at this time.
+    Following.
     """
-    def __init__(self, max_retry_scroll=3, max_run_duration=540) -> None:
+    def __init__(self, max_run_duration=540) -> None:
         account = get_account()
         self.EMAIL = account['username']
         self.PASSWORD = account['password']
@@ -24,14 +23,14 @@ class KudosGiver:
             raise Exception(f"Must set environ variables EMAIL AND PASSWORD. \
                 e.g. run export STRAVA_EMAIL=YOUR_EMAIL")
 
-        self.max_retry_scroll = max_retry_scroll
         self.max_run_duration = max_run_duration
-        self.kudos_button_pattern = '[data-testid="kudos_button"]'
+        self.start_time = time.time()
+        self.num_entries = 100
+        self.web_feed_entry_pattern = '[data-testid=web-feed-entry]'
+
         p = sync_playwright().start()
         self.browser = p.firefox.launch() # does not work in chrome
         self.page = self.browser.new_page()
-        
-        self.start_time = time.time()
 
 
     def email_login(self):
@@ -42,57 +41,115 @@ class KudosGiver:
         self.page.fill('#email', self.EMAIL)
         self.page.fill("#password", self.PASSWORD)
         self.page.click("button[type='submit']")
-        print("Logged in.")
-        self.page.goto(os.path.join(BASE_URL, "dashboard"), wait_until="domcontentloaded")
+        print("---Logged in!!---")
+        self._run_with_retries(func=self._get_page_and_own_profile)
         
+    def _run_with_retries(self, func, retries=3):
+        """
+        Retry logic with sleep in between tries.
+        """
+        for i in range(retries):
+            if i == retries - 1:
+                raise Exception(f"Retries {retries} times failed.")
+            try:
+                func()
+                return
+            except:
+                time.sleep(1)
 
-    def locate_kudos_buttons_and_maybe_give_kudos(self, button_locator) -> int:
+    def _get_page_and_own_profile(self):
+        """
+        Limit activities count by GET parameter and get own profile ID.
+        """
+        self.page.goto(os.path.join(BASE_URL, f"dashboard?num_entries={self.num_entries}"), wait_until="networkidle")
+        self.own_profile_id = self.page.locator("#athlete-profile .card-body > a").get_attribute('href').split("/athletes/")[1]
+
+    def locate_kudos_buttons_and_maybe_give_kudos(self, web_feed_entry_locator) -> int:
         """
         input: playwright.locator class
         Returns count of kudos given.
         """
-        b_count= button_locator.count()
+        w_count = web_feed_entry_locator.count()
         given_count = 0
-        for i in range(b_count):
-            button = button_locator.nth(i)
-            if button.get_by_test_id("unfilled_kudos").count():
-                try:
-                    button.click(timeout=1000)
-                    given_count += 1
-                    time.sleep(1)
-                except TimeoutError:
-                    print("Click timed out.")
-        print(f"Kudos given: {given_count}")
-        return given_count
-
-    def give_kudos(self):
-        """
-        Scroll through pages to give kudos that are giveable.
-        """
-        ## Give Kudos on loaded page ##
-        button_locator = self.page.locator(self.kudos_button_pattern)
-        kudos_given = self.locate_kudos_buttons_and_maybe_give_kudos(button_locator=button_locator)
-        curr_retry = self.max_retry_scroll
-
-        ## Scroll down and repeat ##
-        while kudos_given or curr_retry > 0:
+        print(f"web feeds found: {w_count}")
+        for i in range(w_count):
+            # run condition check
             curr_duration = time.time() - self.start_time
             if curr_duration > self.max_run_duration:
                 print("Max run duration reached.")
                 break
-            self.page.mouse.wheel(0, 12000)
-            time.sleep(5)
-            kudos_given = self.locate_kudos_buttons_and_maybe_give_kudos(button_locator=button_locator)
-            if not kudos_given:
-                curr_retry -= 1
-        
+
+            web_feed = web_feed_entry_locator.nth(i)
+            p_count = web_feed.get_by_test_id("entry-header").count()
+
+            # check if activity has multiple participants
+            if p_count > 1:
+                for j in range(p_count):
+                    participant = web_feed.get_by_test_id("entry-header").nth(j)
+                    # ignore own activities
+                    if not self.is_participant_me(participant):
+                        kudos_container = web_feed.get_by_test_id("kudos_comments_container").nth(j)
+                        button = self.find_unfilled_kudos_button(kudos_container)
+                        given_count += self.click_kudos_button(unfilled_kudos_container=button)
+            else:
+                # ignore own activities
+                if not self.is_participant_me(web_feed):
+                    button = self.find_unfilled_kudos_button(web_feed)
+                    given_count += self.click_kudos_button(unfilled_kudos_container=button)
+        print(f"Kudos given: {given_count}")
+        return given_count
+    
+    def is_participant_me(self, container) -> bool:
+        """
+        Returns true is the container's owner is logged-in user.
+        """
+        owner = self.own_profile_id
+        try:
+            h = container.get_by_test_id("owners-name").get_attribute('href')
+            hl = h.split("/athletes/")
+            owner = hl[1]
+        except:
+            print("Some issue with getting owners-name container.")
+        return owner == self.own_profile_id
+    
+    def find_unfilled_kudos_button(self, container):
+        """
+        Returns button as a playwright.locator class
+        """
+        button = None
+        try:
+            button = container.get_by_test_id("unfilled_kudos")
+        except:
+            print("Some issue with finding the unfilled_kudos container.")
+        return button
+
+    def click_kudos_button(self, unfilled_kudos_container) -> int:
+        """
+        input: playwright.locator class
+        Returns 1 if kudos button was clicked else 0
+        """
+        if unfilled_kudos_container.count() == 1:
+            unfilled_kudos_container.click(timeout=0, no_wait_after=True)
+            print('=', end='')
+            time.sleep(1)
+            return 1
+        return 0
+
+    def give_kudos(self):
+        """
+        Interate over web feed entries
+        """
+        ## Give Kudos on loaded page ##
+        web_feed_entry_locator = self.page.locator(self.web_feed_entry_pattern)
+        self.locate_kudos_buttons_and_maybe_give_kudos(web_feed_entry_locator=web_feed_entry_locator)
         self.browser.close()
-        
 
     def login_and_kudos(self):
+        """
+        Login and give kudos
+        """
         self.email_login()
         self.give_kudos()
-
 
 def main():
     kg = KudosGiver()
