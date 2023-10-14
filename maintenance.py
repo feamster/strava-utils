@@ -34,8 +34,8 @@ if __name__ == '__main__':
     ###############################
     # Give Kudos
 
-    kg = KudosGiver()
-    kg.login_and_kudos()
+    #kg = KudosGiver()
+    #kg.login_and_kudos()
 
     ###############################
     # Fix the Elevations - Chicago is Flat, so we look for a pretty low threshold
