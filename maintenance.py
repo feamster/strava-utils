@@ -9,10 +9,6 @@ from stravaauth import get_tokens, get_account, site_login
 from get_activities import get_activities
 from fix import name_fix, elevation_fix
 
-from give_kudos import KudosGiver
-
-from selenium import webdriver
-
 if __name__ == '__main__':
 
     ###############################
