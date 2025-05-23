@@ -3,7 +3,7 @@
 import time
 import sys
 import json
-from selenium import webdriver
+#from selenium import webdriver
 
 import re
 from datetime import datetime

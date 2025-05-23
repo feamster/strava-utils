@@ -9,7 +9,7 @@ import time
 import json
 import requests
 
-from selenium import webdriver
+#from selenium import webdriver
 
 account_file = 'account.json'
 token_file = 'strava_tokens.json'
