@@ -9,6 +9,8 @@ import re
 from datetime import datetime
 from geopy.geocoders import Nominatim
 import requests
+import ssl
+import certifi
 
 from stravaauth import get_tokens, get_account, site_login
 
@@ -56,7 +58,9 @@ def elevation_fix(driver,activities,thresh=0.01):
             continue
 
 def name_fix(activities,tokens):
-    app = Nominatim(user_agent="strava-fix")
+    # Configure SSL context to use certifi certificates
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    app = Nominatim(user_agent="strava-fix", ssl_context=ctx)
 
     for activity in activities:
         name = activity['name']
@@ -67,52 +71,81 @@ def name_fix(activities,tokens):
         if re.match(r'.*?(Morning|Lunch|Afternoon|Evening|Night) Run.*', name):  #name == 'Morning Run':
 
             if activity['start_latlng'] is None:
+                print(f"  Skipping - no location data")
                 continue
 
             dt = datetime.strptime(activity['start_date'], '%Y-%m-%dT%H:%M:%SZ')
 
-            print(name, dt)
+            print(f"\nProcessing: {name}, {dt}")
 
             try:
                 (lat, lon) = activity['start_latlng']
             except ValueError as e:
+                print(f"  Error parsing coordinates: {e}")
                 (lat, lon) = (0,0)
 
+            # Skip invalid coordinates
+            if lat == 0 and lon == 0:
+                print(f"  Skipping - invalid coordinates")
+                continue
+
             ##################
-            # Reverse Geocode (TODO: Update this library.)
+            # Reverse Geocode with rate limiting
             coordinates = f"{lat}, {lon}"
 
+            # Add delay to respect Nominatim rate limits (1 request per second)
+            time.sleep(1)
+
             try:
+                print(f"  Geocoding: {coordinates}")
                 location = app.reverse(coordinates, language='en').raw
-                #print(location)
 
-                try: 
-                    aname = '{}/{}/{} {}, {} ({}) - {:4.2f} miles'.format( dt.month, dt.day, dt.year, 
-                            location['address']['city'], location['address']['state'], 
+                # Try different address formats based on what's available
+                try:
+                    aname = '{}/{}/{} {}, {} ({}) - {:4.2f} miles'.format( dt.month, dt.day, dt.year,
+                            location['address']['city'], location['address']['state'],
                             location['address']['municipality'], distance)
-                except KeyError as e:
+                except KeyError:
                     try:
-                        aname = '{}/{}/{} {}, {} - {:4.2f} miles'.format( dt.month, dt.day, dt.year, 
+                        aname = '{}/{}/{} {}, {} - {:4.2f} miles'.format( dt.month, dt.day, dt.year,
                                 location['address']['city'], location['address']['state'], distance)
-                    except KeyError as e:
-                        aname = '{}/{}/{} Unknown - {:4.2f} miles'.format( dt.month, dt.day, dt.year, distance)
+                    except KeyError:
+                        # Try alternative address fields
+                        try:
+                            city = location['address'].get('town') or location['address'].get('village') or location['address'].get('hamlet')
+                            state = location['address'].get('state')
+                            if city and state:
+                                aname = '{}/{}/{} {}, {} - {:4.2f} miles'.format( dt.month, dt.day, dt.year, city, state, distance)
+                            else:
+                                print(f"  Could not extract city/state. Available fields: {location['address'].keys()}")
+                                aname = '{}/{}/{} Unknown Location - {:4.2f} miles'.format( dt.month, dt.day, dt.year, distance)
+                        except Exception as inner_e:
+                            print(f"  Address parsing error: {inner_e}")
+                            aname = '{}/{}/{} Unknown Location - {:4.2f} miles'.format( dt.month, dt.day, dt.year, distance)
 
-            except:
-                aname = '{}/{}/{} {}, {} - {:4.2f} miles'.format( dt.month, dt.day, dt.year, 
+            except Exception as e:
+                # Use Chicago as reasonable fallback when geocoding fails
+                print(f"  Geocoding failed ({type(e).__name__}: {str(e)[:100]}), using Chicago fallback")
+                aname = '{}/{}/{} {}, {} - {:4.2f} miles'.format( dt.month, dt.day, dt.year,
                         'Chicago', 'Illinois', distance)
 
             #################
-            print(aname)
+            print(f"  New name: {aname}")
             activity['name'] = aname
 
-            print("Updating {}".format(activity['id']))
-            #print(activity)
+            print(f"  Updating activity {activity['id']}...")
             access_token = tokens['access_token']
             headers = {'Authorization': 'Bearer ' + access_token, "Content-Type": "application/json"}
             url = 'https://www.strava.com/api/v3/activities/{}'.format(activity['id'])
             activity_json = json.dumps(activity)
             response = requests.put(url, data=activity_json, headers=headers)
-            print(response.content)
+
+            if response.status_code == 200:
+                print(f"  ✓ Successfully updated!")
+            else:
+                print(f"  ✗ Error: {response.status_code} - {response.content[:200]}")
+
+            # Rate limit for Strava API
             time.sleep(1)
 
 
