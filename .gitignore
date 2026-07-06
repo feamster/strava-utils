@@ -1,5 +1,10 @@
 __pycache__/
-geckodriver.log
+.venv/
+.idea/
+.DS_Store
 *.log
-conf/*json
-data/*json
+*.swp
+conf/*.json
+data/*.json
+!conf/*.json.example
+!data/*.json.example
